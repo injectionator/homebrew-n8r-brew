@@ -2,7 +2,7 @@ class N8r < Formula
   desc "The n8r CLI - Injectionator command-line tool"
   homepage "https://injectionator.com"
   url "https://github.com/injectionator/homebrew-n8r-brew/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "cffd0c8735bc8866c5454b3dcff96308650f6cbd74761c216a9ab1a27dd374c2"
+  sha256 "bcd4c2f64f9fda3514e99845c04f1d7a394b2ba4184047696ae4a21e106f169b"
   license "Copyright 2026 Steve Chambers, Injectionator, Viewyonder"
 
   depends_on "go" => :build
