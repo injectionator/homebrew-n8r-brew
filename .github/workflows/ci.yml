@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build
+        run: go build -o n8r ./cmd/n8r
+
+      - name: Version check
+        run: ./n8r --version
+
+      - name: Help output
+        run: ./n8r help
+
+      - name: Status without credentials
+        run: ./n8r status
+
+      - name: Smoke test device code endpoint
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST https://injectionator.com/api/auth/device/code)
+          http_code=$(echo "$response" | tail -1)
+          body=$(echo "$response" | head -1)
+          echo "HTTP $http_code"
+          echo "$body" | python3 -m json.tool
+          if [ "$http_code" != "200" ]; then
+            echo "FAIL: expected 200, got $http_code"
+            exit 1
+          fi
+          # Verify response has expected fields
+          echo "$body" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert 'device_code' in d, 'missing device_code'
+          assert 'user_code' in d, 'missing user_code'
+          assert 'verification_uri' in d, 'missing verification_uri'
+          assert d['interval'] == 5, 'unexpected interval'
+          assert d['expires_in'] == 900, 'unexpected expires_in'
+          print('All fields validated')
+          "
+
+      - name: Smoke test token polling (expects authorization_pending)
+        run: |
+          # First get a device code
+          device_code=$(curl -s -X POST https://injectionator.com/api/auth/device/code | python3 -c "import json,sys; print(json.load(sys.stdin)['device_code'])")
+          # Poll for token — should get authorization_pending
+          response=$(curl -s -X POST https://injectionator.com/api/auth/device/token \
+            -H "Content-Type: application/json" \
+            -d "{\"device_code\": \"$device_code\"}")
+          echo "$response" | python3 -m json.tool
+          echo "$response" | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)
+          assert d.get('error') == 'authorization_pending', f'expected authorization_pending, got {d}'
+          print('Token polling correctly returns authorization_pending')
+          "
