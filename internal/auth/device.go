@@ -44,7 +44,14 @@ var (
 // RequestDeviceCode initiates the device authorization flow.
 func RequestDeviceCode() (*DeviceCodeResponse, error) {
 	url := config.BaseURL + "/api/auth/device/code"
-	resp, err := http.Post(url, "application/json", strings.NewReader("{}"))
+	req, err := http.NewRequest("POST", url, strings.NewReader("{}"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", config.BaseURL)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request device code: %w", err)
 	}
@@ -81,7 +88,14 @@ func PollForToken(deviceCode string, interval int, expiresIn int) (*TokenRespons
 		time.Sleep(pollInterval)
 
 		payload := fmt.Sprintf(`{"device_code":"%s"}`, deviceCode)
-		resp, err := http.Post(url, "application/json", strings.NewReader(payload))
+		req, err := http.NewRequest("POST", url, strings.NewReader(payload))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", config.BaseURL)
+
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to poll for token: %w", err)
 		}

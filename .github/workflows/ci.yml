@@ -30,7 +30,7 @@ jobs:
 
       - name: Smoke test device code endpoint
         run: |
-          response=$(curl -s -w "\n%{http_code}" -X POST https://injectionator.com/api/auth/device/code)
+          response=$(curl -s -w "\n%{http_code}" -X POST https://injectionator.com/api/auth/device/code -H "Origin: https://injectionator.com" -H "Content-Type: application/json")
           http_code=$(echo "$response" | tail -1)
           body=$(echo "$response" | head -1)
           echo "HTTP $http_code"
@@ -54,9 +54,10 @@ jobs:
       - name: Smoke test token polling (expects authorization_pending)
         run: |
           # First get a device code
-          device_code=$(curl -s -X POST https://injectionator.com/api/auth/device/code | python3 -c "import json,sys; print(json.load(sys.stdin)['device_code'])")
+          device_code=$(curl -s -X POST https://injectionator.com/api/auth/device/code -H "Origin: https://injectionator.com" -H "Content-Type: application/json" | python3 -c "import json,sys; print(json.load(sys.stdin)['device_code'])")
           # Poll for token — should get authorization_pending
           response=$(curl -s -X POST https://injectionator.com/api/auth/device/token \
+            -H "Origin: https://injectionator.com" \
             -H "Content-Type: application/json" \
             -d "{\"device_code\": \"$device_code\"}")
           echo "$response" | python3 -m json.tool
