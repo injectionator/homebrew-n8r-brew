@@ -9,9 +9,18 @@ import (
 	"github.com/injectionator/n8r/internal/config"
 )
 
+const banner = `
+ ███╗   ██╗ █████╗ ██████╗
+ ████╗  ██║██╔══██╗██╔══██╗
+ ██╔██╗ ██║╚█████╔╝██████╔╝
+ ██║╚██╗██║██╔══██╗██╔══██╗
+ ██║ ╚████║╚█████╔╝██║  ██║
+ ╚═╝  ╚═══╝ ╚════╝ ╚═╝  ╚═╝
+`
+
 func main() {
 	if len(os.Args) < 2 {
-		printUsage()
+		printWelcome()
 		os.Exit(0)
 	}
 
@@ -27,12 +36,12 @@ func main() {
 	case "version", "--version", "-v":
 		fmt.Printf("n8r v%s\n", config.Version)
 	case "help", "--help", "-h":
-		printUsage()
+		printWelcome()
 	default:
-		// Any other command requires authentication
 		token, err := auth.LoadToken()
 		if err != nil || token == nil || token.IsExpired() {
-			fmt.Fprintln(os.Stderr, "Please run `n8r login` first")
+			fmt.Fprintln(os.Stderr, "You must be logged in to use this command.")
+			fmt.Fprintln(os.Stderr, "Run `n8r login` to authenticate.")
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", cmd)
@@ -41,26 +50,40 @@ func main() {
 	}
 }
 
+func printWelcome() {
+	fmt.Print(banner)
+	fmt.Printf(" Injectionator CLI v%s\n", config.Version)
+	fmt.Println(" https://injectionator.com")
+	fmt.Println()
+
+	token, _ := auth.LoadToken()
+	if token == nil || token.IsExpired() {
+		fmt.Println(" You are not logged in.")
+		fmt.Println(" This is an alpha product with limited access.")
+		fmt.Println(" Run `n8r login` to authenticate with your Injectionator account.")
+		fmt.Println()
+	} else {
+		fmt.Println(" You are logged in.")
+		fmt.Println()
+		printUsage()
+	}
+}
+
 func printUsage() {
-	fmt.Printf(`n8r v%s — Injectionator CLI
-
-Usage:
-  n8r <command>
-
-Commands:
-  login       Authenticate with Injectionator
-  logout      Remove stored credentials
-  status      Show authentication status
-  version     Print version
-
-Flags:
-  --version   Print version
-  --help      Show this help
-`, config.Version)
+	fmt.Println("Commands:")
+	fmt.Println("  n8r login          Authenticate with Injectionator")
+	fmt.Println("  n8r logout         Remove stored credentials")
+	fmt.Println("  n8r status         Show authentication status")
+	fmt.Println("  n8r inspect        Inspect your injectionator")
+	fmt.Println("  n8r version        Print version")
+	fmt.Println()
 }
 
 func cmdLogin() {
-	// Check if already logged in
+	fmt.Print(banner)
+	fmt.Println(" Authenticate with Injectionator")
+	fmt.Println()
+
 	existing, _ := auth.LoadToken()
 	if existing != nil && !existing.IsExpired() {
 		fmt.Println("You are already authenticated.")
@@ -68,17 +91,16 @@ func cmdLogin() {
 		return
 	}
 
-	// Request device code
 	dcr, err := auth.RequestDeviceCode()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Visit %s and enter code: %s\n", dcr.VerificationURI, dcr.UserCode)
+	fmt.Printf("Visit %s and enter code:\n\n", dcr.VerificationURI)
+	fmt.Printf("  >>> %s <<<\n\n", dcr.UserCode)
 	fmt.Println("Waiting for authorization...")
 
-	// Poll for token
 	token, err := auth.PollForToken(dcr.DeviceCode, dcr.Interval, dcr.ExpiresIn)
 	if err != nil {
 		if err == auth.ErrExpiredToken {
@@ -91,7 +113,6 @@ func cmdLogin() {
 		os.Exit(1)
 	}
 
-	// Save token
 	if err := auth.SaveToken(*token); err != nil {
 		fmt.Fprintf(os.Stderr, "Error saving credentials: %v\n", err)
 		os.Exit(1)
